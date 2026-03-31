@@ -1,6 +1,6 @@
 from aiogram.fsm.state import State, StatesGroup
 
-class QuizFrom(StatesGroup):
+class QuizForm(StatesGroup):
     furniture_type = State()
     sizes = State()
     budget = State()
@@ -11,4 +11,9 @@ class QuizFrom(StatesGroup):
 
 
 class BookingForm(StatesGroup):
-    pass
+    date = State()
+    time_slot = State()
+    address = State()
+    phone = State()
+    comment = State()
+    confirm = State()
