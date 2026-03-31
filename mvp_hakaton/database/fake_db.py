@@ -1,173 +1,136 @@
-from typing import Any
+import json
+import os
+from datetime import datetime
 
-users: list[dict[str, Any]] = [
-    {
-        "id": 1,
-        "telegram_id": "123456789",
-        "username": "ivan_ivanov",
-        "first_name": "Иван",
-        "phone": "+7 999 111-22-33",
-        "created_at": "2025-01-15 10:30:00"
-    },
-    {
-        "id": 2,
-        "telegram_id": "234567890",
-        "username": "olga_petrova",
-        "first_name": "Ольга",
-        "phone": "+7 999 222-33-44",
-        "created_at": "2025-01-16 14:20:00"
-    },
-    {
-        "id": 3,
-        "telegram_id": "345678901",
-        "username": "dimon_k",
-        "first_name": "Дмитрий",
-        "phone": "+7 999 333-44-55",
-        "created_at": "2025-01-17 09:15:00"
-    },
-    {
-        "id": 4,
-        "telegram_id": "456789012",
-        "username": "maria_s",
-        "first_name": "Мария",
-        "phone": "+7 999 444-55-66",
-        "created_at": "2025-01-18 16:45:00"
-    },
-    {
-        "id": 5,
-        "telegram_id": "567890123",
-        "username": "alexey_m",
-        "first_name": "Алексей",
-        "phone": "+7 999 555-66-77",
-        "created_at": "2025-01-19 11:00:00"
-    }
-]
+from config import DATA_DIR
 
-leads = [
-    {
-        "id": 1,
-        "user_id": 1,
-        "furniture_type": "Кухня",
-        "sizes": "250x180x60",
-        "budget": "100 000 - 200 000 ₽",
-        "location": "Москва, ЦАО",
-        "phone": "+7 999 111-22-33",
-        "description": "Нужна кухня в современном стиле",
-        "status": "new",
-        "created_at": "2025-01-15 10:35:00"
-    },
-    {
-        "id": 2,
-        "user_id": 2,
-        "furniture_type": "Шкаф-купе",
-        "sizes": "200x240x60",
-        "budget": "50 000 - 100 000 ₽",
-        "location": "Москва, ЗАО",
-        "phone": "+7 999 222-33-44",
-        "description": "Шкаф в прихожую",
-        "status": "contacted",
-        "created_at": "2025-01-16 14:25:00"
-    },
-    {
-        "id": 3,
-        "user_id": 3,
-        "furniture_type": "Детская",
-        "sizes": "300x200x50",
-        "budget": "Более 200 000 ₽",
-        "location": "Москва, СВАО",
-        "phone": "+7 999 333-44-55",
-        "description": "Комната для двоих детей",
-        "status": "new",
-        "created_at": "2025-01-17 09:20:00"
-    }
-]
+os.makedirs(DATA_DIR, exist_ok=True)
 
-appointments: list[dict[str, Any]] = [
-    {
-        "id": 1,
-        "user_id": 1,
-        "appointment_date": "20.01.2025",
-        "time_slot": "10:00-12:00",
-        "address": "ул. Тверская, д. 10, кв. 5",
-        "phone": "+7 999 111-22-33",
-        "comment": "Домофон не работает, звонить в дверь",
-        "status": "scheduled",
-        "created_at": "2025-01-15 10:40:00"
-    },
-    {
-        "id": 2,
-        "user_id": 4,
-        "appointment_date": "21.01.2025",
-        "time_slot": "14:00-16:00",
-        "address": "пр. Мира, д. 25, кв. 12",
-        "phone": "+7 999 444-55-66",
-        "comment": "",
-        "status": "scheduled",
-        "created_at": "2025-01-18 16:50:00"
-    }
-]
+USERS_FILE = os.path.join(DATA_DIR, "users.json")
+LEADS_FILE = os.path.join(DATA_DIR, "leads.json")
+APPOINTMENTS_FILE = os.path.join(DATA_DIR, "appointments.json")
+COUNTERS_FILE = os.path.join(DATA_DIR, "counters.json")
 
-projects: list[dict[str, Any]] = [
-    {
-        "id": 1,
-        "user_id": 2,
-        "file_id": "AgACAgIAAxkAAQ",
-        "file_type": "photo",
-        "file_name": "kitchen_photo.jpg",
-        "description": "Фото кухни для примера",
-        "created_at": "2025-01-16 14:30:00"
-    },
-    {
-        "id": 2,
-        "user_id": 5,
-        "file_id": "BQACAgIAAxkAAQ",
-        "file_type": "document",
-        "file_name": "plan.pdf",
-        "description": "Чертеж помещения",
-        "created_at": "2025-01-19 11:05:00"
-    }
-]
+# ==================== Helper Functions ====================
 
+def load_json(filepath, default=None):
+    if default is None:
+        default = []
+    if not os.path.exists(filepath):
+        return default
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return default
 
-# ==================== СЧЁТЧИКИ ID ====================
-counters: dict[str, int] = {
-    "user_id": 5,
-    "lead_id": 3,
-    "appointment_id": 2,
-    "project_id": 2
-}
+def save_json(filepath, data):
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
-
-def get_next_id(key: str) -> int:
-    """
-    Получить следующий ID
-    """
-
-    counters[key] += 1
+def get_next_id(key):
+    counters = load_json(COUNTERS_FILE, {"user_id": 0, "lead_id": 0, "appointment_id": 0})
+    counters[key] = counters.get(key, 0) + 1
+    save_json(COUNTERS_FILE, counters)
     return counters[key]
 
+# ==================== Users ====================
 
-# # --- STATS ---
+def get_user_by_telegram_id(telegram_id):
+    users = load_json(USERS_FILE, [])
+    for user in users:
+        if user.get("telegram_id") == telegram_id:
+            return user
+    return None
 
-# def get_stats() -> dict:
-#     """Получить статистику"""
-#     return {
-#         "users_count": len(users),
-#         "leads_count": len(leads),
-#         "appointments_count": len(appointments),
-#         "projects_count": len(projects),
-#         "new_leads": len([l for l in leads if l["status"] == "new"]),
-#         "scheduled_appointments": len([a for a in appointments if a["status"] == "scheduled"])
-#     }
+def create_user(telegram_id, username="", first_name=""):
+    users = load_json(USERS_FILE, [])
+    user = {
+        "id": get_next_id("user_id"),
+        "telegram_id": telegram_id,
+        "username": username,
+        "first_name": first_name,
+        "phone": "",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    users.append(user)
+    save_json(USERS_FILE, users)
+    return user
 
+def get_or_create_user(telegram_id, username="", first_name=""):
+    user = get_user_by_telegram_id(telegram_id)
+    if not user:
+        user = create_user(telegram_id, username, first_name)
+    return user
 
-# def clear_all():
-#     """Очистить все данные (для тестов)"""
-#     users.clear()
-#     leads.clear()
-#     appointments.clear()
-#     projects.clear()
-#     counters["user_id"] = 0
-#     counters["lead_id"] = 0
-#     counters["appointment_id"] = 0
-#     counters["project_id"] = 0
+def update_user_phone(telegram_id, phone):
+    users = load_json(USERS_FILE, [])
+    for user in users:
+        if user.get("telegram_id") == telegram_id:
+            user["phone"] = phone
+            save_json(USERS_FILE, users)
+            return True
+    return False
+
+def get_all_users():
+    return load_json(USERS_FILE, [])
+
+# ==================== Leads ====================
+
+def create_lead(user_id, data):
+    leads = load_json(LEADS_FILE, [])
+    lead = {
+        "id": get_next_id("lead_id"),
+        "user_id": user_id,
+        "furniture_type": data.get("furniture_type", ""),
+        "sizes": data.get("sizes", ""),
+        "budget": data.get("budget", ""),
+        "location": data.get("location", ""),
+        "phone": data.get("phone", ""),
+        "description": data.get("description", ""),
+        "status": "new",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    leads.append(lead)
+    save_json(LEADS_FILE, leads)
+    return lead
+
+def get_all_leads(limit=50):
+    leads = load_json(LEADS_FILE, [])
+    return sorted(leads, key=lambda x: x.get("created_at", ""), reverse=True)[:limit]
+
+# ==================== Appointments ====================
+
+def create_appointment(user_id, data):
+    appointments = load_json(APPOINTMENTS_FILE, [])
+    appointment = {
+        "id": get_next_id("appointment_id"),
+        "user_id": user_id,
+        "appointment_date": data.get("date", ""),
+        "time_slot": data.get("time_slot", ""),
+        "address": data.get("address", ""),
+        "phone": data.get("phone", ""),
+        "comment": data.get("comment", ""),
+        "status": "scheduled",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    appointments.append(appointment)
+    save_json(APPOINTMENTS_FILE, appointments)
+    return appointment
+
+def get_all_appointments(limit=50):
+    appointments = load_json(APPOINTMENTS_FILE, [])
+    return sorted(appointments, key=lambda x: x.get("created_at", ""), reverse=True)[:limit]
+
+# ==================== Stats ====================
+
+def get_stats():
+    users = load_json(USERS_FILE, [])
+    leads = load_json(LEADS_FILE, [])
+    appointments = load_json(APPOINTMENTS_FILE, [])
+    return {
+        "users_count": len(users),
+        "leads_count": len(leads),
+        "appointments_count": len(appointments),
+        "new_leads": len([l for l in leads if l.get("status") == "new"])
+    }

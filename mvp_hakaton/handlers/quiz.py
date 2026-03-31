@@ -2,26 +2,31 @@ from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
+from database.fake_db import (
+    get_or_create_user,
+    update_user_phone,
+    create_lead
+)
 from keyboards.quiz_kb import (
     get_furniture_type_keyboard,
     get_budget_keyboard,
     get_confirm_keyboard
 )
-from repositories.user_repo import UserRepository
-from repositories.lead_repo import LeadRepository
-# from utils.notifications import notify_admin_lead
 from states.forms import QuizForm
 
-router = Router(name="quiz router")
+router = Router()
 
 
 @router.message(F.text == "🛋 Рассчитать мебель")
 async def start_quiz(message: Message, state: FSMContext) -> None:
-    UserRepository.get_or_create_user(message.from_user.id)
-    
+    get_or_create_user(
+        message.from_user.id,
+        message.from_user.username or "",
+        message.from_user.first_name or ""
+    )
     await state.set_state(QuizForm.furniture_type)
     await message.answer(
-        "🛋 <b>Какой тип мебели вас интересует?</b>", 
+        "🛋 <b>Какой тип мебели вас интересует?</b>",
         reply_markup=get_furniture_type_keyboard()
     )
 
@@ -34,7 +39,7 @@ async def process_furniture_type(message: Message, state: FSMContext) -> None:
 
 
 @router.message(QuizForm.sizes)
-async def process_sizes(message: Message, state: FSMContext) -> None:
+async def process_sizes(message: Message, state: FSMContext):
     await state.update_data(sizes=message.text)
     await state.set_state(QuizForm.budget)
     await message.answer(
@@ -59,10 +64,7 @@ async def process_location(message: Message, state: FSMContext) -> None:
 
 @router.message(QuizForm.phone)
 async def process_phone(message: Message, state: FSMContext) -> None:
-    UserRepository.update_user_phone(
-        message.from_user.id,
-        message.text
-    )
+    update_user_phone(message.from_user.id, message.text)
     await state.update_data(phone=message.text)
     await state.set_state(QuizForm.description)
     await message.answer("📝 <b>Опишите проект (или «Пропустить»):</b>")
@@ -70,10 +72,10 @@ async def process_phone(message: Message, state: FSMContext) -> None:
 
 @router.message(QuizForm.description)
 async def process_description(message: Message, state: FSMContext) -> None:
-    if message.text.lower() == "пропустить":
+    if message.text.lower():
         desc = ""
     else:
-        desc = message.text
+        message.text
     await state.update_data(description=desc)
     
     data = await state.get_data()
@@ -86,7 +88,7 @@ async def process_description(message: Message, state: FSMContext) -> None:
         f"📱 Телефон: {data['phone']}\n\n"
         f"Все верно?"
     )
-
+    
     await state.set_state(QuizForm.confirm)
     await message.answer(resume, reply_markup=get_confirm_keyboard())
 
@@ -94,16 +96,17 @@ async def process_description(message: Message, state: FSMContext) -> None:
 @router.callback_query(QuizForm.confirm, F.data == "confirm_yes")
 async def confirm_lead(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
-    user = UserRepository.get_or_create_user(callback.from_user.id)
-    lead = LeadRepository.create_lead(user, data=data)
+    user = get_or_create_user(callback.from_user.id)
+    lead = create_lead(user["id"], data)
     
     await state.clear()
     await callback.message.answer("✅ <b>Заявка принята!</b>")
-    # await notify_admin_lead(callback.bot, data, callback.from_user.id, lead.id)
 
 
 @router.callback_query(QuizForm.confirm, F.data == "confirm_edit")
 async def edit_lead(callback: CallbackQuery, state: FSMContext):
     await state.set_state(QuizForm.furniture_type)
-    await callback.message.answer("✏️ Начнём заново.\n🛋 Тип мебели?", 
-                                 reply_markup=get_furniture_type_keyboard())
+    await callback.message.answer(
+        "✏️ Начнём заново.\n🛋 Тип мебели?",
+        reply_markup=get_furniture_type_keyboard()
+    )
